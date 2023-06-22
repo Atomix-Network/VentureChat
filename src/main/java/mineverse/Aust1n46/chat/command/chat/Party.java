@@ -1,18 +1,24 @@
 package mineverse.Aust1n46.chat.command.chat;
 
-import static mineverse.Aust1n46.chat.MineverseChat.LINE_LENGTH;
-
+import mineverse.Aust1n46.chat.MineverseChat;
+import mineverse.Aust1n46.chat.api.MineverseChatAPI;
+import mineverse.Aust1n46.chat.api.MineverseChatPlayer;
+import mineverse.Aust1n46.chat.utilities.Format;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-import mineverse.Aust1n46.chat.MineverseChat;
-import mineverse.Aust1n46.chat.api.MineverseChatAPI;
-import mineverse.Aust1n46.chat.api.MineverseChatPlayer;
-import mineverse.Aust1n46.chat.utilities.Format;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
+import static mineverse.Aust1n46.chat.MineverseChat.LINE_LENGTH;
 
 public class Party extends Command {
+	//         InvitedUUID, InviterUUID
+	private final Map<UUID, UUID> partyInvitations = new HashMap<>();
+
 	private MineverseChat plugin = MineverseChat.getInstance();
 
 	public Party() {
@@ -58,6 +64,33 @@ public class Party extends Command {
 				mcp.setParty(mcp.getUUID());
 				break;
 			}
+			case "invite": {
+				if (!mcp.getPlayer().hasPermission("venturechat.party.invite")) {
+					mcp.getPlayer().sendMessage(ChatColor.RED + "You do not have permission for this command!");
+					return true;
+				}
+				if (args.length < 2) {
+					mcp.getPlayer().sendMessage(ChatColor.RED + "Invalid command: /party invite [player]");
+					break;
+				}
+				if (!mcp.isHost()) {
+					mcp.getPlayer().sendMessage(ChatColor.RED + "You are not in a party.");
+					break;
+				}
+				MineverseChatPlayer player = MineverseChatAPI.getMineverseChatPlayer(args[1]);
+				if (player == null) {
+					mcp.getPlayer().sendMessage(ChatColor.RED + "Player: " + ChatColor.GOLD + args[1] + ChatColor.RED + " is not online.");
+					break;
+				}
+				if (player.getPlayer().equals(mcp.getPlayer())) {
+					mcp.getPlayer().sendMessage(ChatColor.RED + "You can't invite yourself.");
+					break;
+				}
+				partyInvitations.put(player.getUUID(), mcp.getUUID());
+				mcp.getPlayer().sendMessage(ChatColor.GOLD + player.getName() + ChatColor.GREEN + " has been invited to your party.");
+				player.getPlayer().sendMessage(ChatColor.GREEN + "You've been invited to join " + ChatColor.GOLD + mcp.getName() + "'s " + ChatColor.GREEN + "party. Run " + ChatColor.GOLD + "/party join " + mcp.getName() + ChatColor.GREEN + " to join.");
+				break;
+			}
 			case "join": {
 				if (!mcp.getPlayer().hasPermission("venturechat.party.join")) {
 					mcp.getPlayer().sendMessage(ChatColor.RED + "You do not have permission for this command!");
@@ -73,6 +106,12 @@ public class Party extends Command {
 								 * plugin)) { player.sendMessage(ChatColor.RED + "You are banned from " +
 								 * tp.getName() + "'s party."); break; }
 								 */
+								UUID mcpUuid = mcp.getUUID();
+								if (!partyInvitations.containsKey(mcpUuid)) {
+									mcp.getPlayer().sendMessage(ChatColor.RED + "You need an invitation from " + ChatColor.GOLD + player.getName() + ChatColor.RED + " to join the party.");
+									break;
+								}
+								partyInvitations.remove(mcpUuid);
 								mcp.getPlayer().sendMessage(ChatColor.GREEN + "Joined " + player.getName() + "'s party.");
 								mcp.setParty(player.getUUID());
 								player.getPlayer().sendMessage(ChatColor.GREEN + mcp.getName() + " joined your party.");
@@ -227,7 +266,7 @@ public class Party extends Command {
 					return true;
 				}
 				mcp.getPlayer().sendMessage(ChatColor.GREEN
-						+ "/party host\n/party join [player]\n/party leave\n/party kick [player]\n/party ban [player]\n/party unban [player]\n/party info\n/party members [player]\n/party chat\n/party help");
+						+ "/party host\n/party invite [player]\n/party join [player]\n/party leave\n/party kick [player]\n/party ban [player]\n/party unban [player]\n/party info\n/party members [player]\n/party chat\n/party help");
 				break;
 			}
 			case "members": {
@@ -271,7 +310,7 @@ public class Party extends Command {
 			}
 			}
 			if (args[0].length() > 0) {
-				if (!args[0].equals("host") && !args[0].equals("join") && !args[0].equals("leave") && !args[0].equals("kick") && !args[0].equals("info") && !args[0].equals("chat")
+				if (!args[0].equals("host") && !args[0].equals("invite") && !args[0].equals("join") && !args[0].equals("leave") && !args[0].equals("kick") && !args[0].equals("info") && !args[0].equals("chat")
 						&& !args[0].equals("help") && !args[0].equals("members") && !args[0].equals("ban") && !args[0].equals("unban")) {
 					if (mcp.hasParty()) {
 						String msg = "";

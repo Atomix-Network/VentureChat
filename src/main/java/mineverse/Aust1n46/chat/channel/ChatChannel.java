@@ -1,17 +1,14 @@
 package mineverse.Aust1n46.chat.channel;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-
+import mineverse.Aust1n46.chat.MineverseChat;
+import mineverse.Aust1n46.chat.api.MineverseChatPlayer;
+import mineverse.Aust1n46.chat.utilities.Format;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.entity.Player;
 
-import mineverse.Aust1n46.chat.MineverseChat;
-import mineverse.Aust1n46.chat.utilities.Format;
+import java.util.*;
 
 /**
  * Chat channel object pojo. Class also contains static initialization methods
@@ -31,6 +28,7 @@ public class ChatChannel {
 	@Deprecated
 	private static ChatChannel[] channels;
 
+
 	private String name;
 	private String permission;
 	private String speakPermission;
@@ -43,7 +41,7 @@ public class ChatChannel {
 	private double distance;
 	private boolean filter;
 	private boolean bungee;
-	private String format;
+	private Map<String, ChatFormat> formats;
 	private int cooldown;
 	private String prefix;
 
@@ -65,15 +63,28 @@ public class ChatChannel {
 			boolean mutable = cs.getBoolean(key + ".mutable", false);
 			boolean filter = cs.getBoolean(key + ".filter", true);
 			boolean bungee = cs.getBoolean(key + ".bungeecord", false);
-			String format = cs.getString(key + ".format", "Default");
 			boolean defaultChannel = cs.getBoolean(key + ".default", false);
 			String alias = cs.getString(key + ".alias", "None");
 			double distance = cs.getDouble(key + ".distance", (double) 0);
 			int cooldown = cs.getInt(key + ".cooldown", 0);
 			boolean autojoin = cs.getBoolean(key + ".autojoin", false);
 			String prefix = cs.getString(key + ".channel_prefix");
+
+			ConfigurationSection chatFormatsSection = cs.getConfigurationSection(key + ".formats");
+			Map<String, ChatFormat> formats = new HashMap<>();
+			if (chatFormatsSection != null) {
+				for (String permissionNode : chatFormatsSection.getKeys(false)) {
+					int priority = chatFormatsSection.getInt(permissionNode + ".priority");
+					String format = chatFormatsSection.getString(permissionNode + ".format");
+					System.out.println("PRIORITY: " + priority);
+					System.out.println("FORMAT: " + format);
+					ChatFormat chatFormat = new ChatFormat(priority, format);
+					formats.put(permissionNode, chatFormat);
+				}
+			}
+
 			ChatChannel chatChannel = new ChatChannel(name, color, chatColor, permission, speakPermission, mutable,
-					filter, defaultChannel, alias, distance, autojoin, bungee, cooldown, prefix, format);
+					filter, defaultChannel, alias, distance, autojoin, bungee, cooldown, prefix, formats);
 			channels[counter++] = chatChannel;
 			chatChannels.put(name.toLowerCase(), chatChannel);
 			chatChannels.put(alias.toLowerCase(), chatChannel);
@@ -85,8 +96,10 @@ public class ChatChannel {
 		// Error handling for missing default channel in the config.
 		if(defaultChatChannel == null) {
 			Bukkit.getConsoleSender().sendMessage(Format.FormatStringAll("&8[&eVentureChat&8]&e - &cNo default channel found!"));
+			Map<String, ChatFormat> formats = new HashMap<>();
+			formats.put("default", new ChatFormat(Integer.MAX_VALUE, "{venturechat_channel_prefix} {vault_prefix}{player_displayname}&c:"));
 			defaultChatChannel = new ChatChannel("MissingDefault", "red", "red", "None", "None", false,
-					true, true, "md", 0, true, false, 0, "&f[&cMissingDefault&f]", "{venturechat_channel_prefix} {vault_prefix}{player_displayname}&c:");
+					true, true, "md", 0, true, false, 0, "&f[&cMissingDefault&f]", formats);
 			defaultColor = defaultChatChannel.getColor();
 			chatChannels.put("missingdefault", defaultChatChannel);
 			chatChannels.put("md", defaultChatChannel);
@@ -183,11 +196,11 @@ public class ChatChannel {
 	 * @param autojoin
 	 * @param bungee
 	 * @param cooldown
-	 * @param format
+	 * @param formats
 	 */
 	public ChatChannel(String name, String color, String chatColor, String permission, String speakPermission,
 			boolean mutable, boolean filter, boolean defaultChannel, String alias, double distance, boolean autojoin,
-			boolean bungee, int cooldown, String prefix, String format) {
+			boolean bungee, int cooldown, String prefix, Map<String, ChatFormat> formats) {
 		this.name = name;
 		this.color = color;
 		this.chatColor = chatColor;
@@ -201,7 +214,7 @@ public class ChatChannel {
 		this.autojoin = autojoin;
 		this.bungee = bungee;
 		this.cooldown = cooldown;
-		this.format = format;
+		this.formats = formats;
 		this.prefix = prefix;
 	}
 
@@ -221,12 +234,12 @@ public class ChatChannel {
 	 * @param autojoin
 	 * @param bungee
 	 * @param cooldown
-	 * @param format
+	 * @param formats
 	 */
 	@Deprecated
 	public ChatChannel(String name, String color, String chatColor, String permission, String speakPermission,
-			Boolean mutable, Boolean filter, Boolean defaultChannel, String alias, Double distance, Boolean autojoin,
-			Boolean bungee, int cooldown, String format) {
+					   Boolean mutable, Boolean filter, Boolean defaultChannel, String alias, Double distance, Boolean autojoin,
+					   Boolean bungee, int cooldown, Map<String, ChatFormat> formats) {
 		this.name = name;
 		this.color = color;
 		this.chatColor = chatColor;
@@ -240,7 +253,7 @@ public class ChatChannel {
 		this.autojoin = autojoin;
 		this.bungee = bungee;
 		this.cooldown = cooldown;
-		this.format = format;
+		this.formats = formats;
 	}
 
 	/**
@@ -253,12 +266,25 @@ public class ChatChannel {
 	}
 
 	/**
-	 * Get the format of the chat channel.
-	 * 
+	 * Get the format of the chat channel for the passed player.
+	 *
+	 * @param mcp
 	 * @return {@link String}
 	 */
-	public String getFormat() {
-		return format;
+	public String getFormat(MineverseChatPlayer mcp) {
+		Player player = mcp.getPlayer();
+		ChatFormat chatFormat = formats.get("default");
+		for (Map.Entry<String, ChatFormat> entry : formats.entrySet()) {
+			if (!player.hasPermission(PERMISSION_PREFIX + "format." + entry.getKey())) continue;
+			if (chatFormat == null || chatFormat.getPriority() > entry.getValue().getPriority()) {
+				chatFormat = entry.getValue();
+			}
+		}
+		return chatFormat.getFormat();
+	}
+
+	public Map<String, ChatFormat> getFormats() {
+		return formats;
 	}
 
 	/**

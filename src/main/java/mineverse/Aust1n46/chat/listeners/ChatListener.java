@@ -345,7 +345,7 @@ public class ChatListener implements Listener {
 			chDistance = eventChannel.getDistance();
 		}
 		
-		format = Format.FormatStringAll(eventChannel.getFormat());
+		format = Format.FormatStringAll(eventChannel.getFormat(mcp));
 		
 		filterthis = eventChannel.isFiltered();
 		if(filterthis) {

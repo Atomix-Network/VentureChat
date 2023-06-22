@@ -1,11 +1,14 @@
 package mineverse.Aust1n46.chat.command.chat;
 
+import mineverse.Aust1n46.chat.channel.ChatChannel;
+import mineverse.Aust1n46.chat.channel.ChatFormat;
+import mineverse.Aust1n46.chat.utilities.Format;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 
-import mineverse.Aust1n46.chat.channel.ChatChannel;
-import mineverse.Aust1n46.chat.utilities.Format;
+import java.util.Iterator;
+import java.util.Map;
 
 public class Channelinfo extends Command {
 	public Channelinfo() {
@@ -58,11 +61,34 @@ public class Channelinfo extends Command {
 				sender.sendMessage(ChatColor.GOLD + "Cooldown: " + chname.getColor() + chname.getCooldown());
 			}
 			sender.sendMessage(ChatColor.GOLD + "Bungeecord: " + chname.getColor() + chname.getBungee());
-			sender.sendMessage(ChatColor.GOLD + "Format: " + chname.getColor() + chname.getFormat());
+			sender.sendMessage(generateFormatsString(chname));
 			return true;
 		} else {
 			sender.sendMessage(ChatColor.RED + "You do not have permission for this command.");
 			return true;
 		}
+	}
+
+	/**
+	 * Generates and returns a String displaying all the formats of the passed channel.
+	 *
+	 * @param channel Channel whose formats will be displayed.
+	 * @return String displaying all the formats of the passed channel.
+	 */
+	private String generateFormatsString(ChatChannel channel) {
+		StringBuilder builder = new StringBuilder(ChatColor.GOLD + "Formats:\n");
+		Iterator<Map.Entry<String, ChatFormat>> entryIterator = channel.getFormats().entrySet().iterator();
+		while (entryIterator.hasNext()) {
+			Map.Entry<String, ChatFormat> entry = entryIterator.next();
+			builder.append("  ").append(ChatColor.YELLOW).append(entry.getKey()).append("\n");
+
+			ChatFormat chatFormat = entry.getValue();
+			builder.append("    ").append(ChatColor.BLUE).append("Priority: ").append(chatFormat.getPriority());
+			builder.append("    ").append(ChatColor.GREEN).append("Format: ").append(chatFormat.getFormat());
+			if (entryIterator.hasNext()) {
+				builder.append("\n");
+			}
+		}
+		return builder.toString();
 	}
 }
