@@ -23,7 +23,7 @@ public class ChatChannel {
 	private static MineverseChat plugin = MineverseChat.getInstance();
 	private static ChatChannel defaultChatChannel;
 	private static String defaultColor;
-	private static HashMap<String, ChatChannel> chatChannels;
+	public static HashMap<String, ChatChannel> chatChannels;
 	
 	@Deprecated
 	private static ChatChannel[] channels;
